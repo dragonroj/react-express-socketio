@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import mysql from "mysql";
 import morgan from "morgan";
 import { Server as SocketServer } from "socket.io";
 import { resolve, dirname } from "path";
@@ -24,14 +25,50 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(resolve("frontend/dist")));
 
 io.on("connection", (socket) => {
-  console.log(socket.id);
+  const room = socket.id;
+  socket.join(room);
+  //console.log(socket.id);
   socket.on("message", (body) => {
-    socket.broadcast.emit("message", {
+    const message = {
       body,
       from: socket.id.slice(8),
+    };
+    //io.to(room).emit("message", message);
+    // Insertar el mensaje en la base de datos MySQL
+    const sql = "INSERT INTO mensajes (`cuerpo`, `remitente`,`fecha` ) VALUES (?, ?, now())";
+              
+
+    const values = [message.body, message.from];
+
+    db.query(sql, values, (err, result) => {
+      if (err) {
+        console.error("Error al insertar el mensaje en la base de datos:", err);
+      } else {
+        console.log("Mensaje insertado en la base de datos");
+      }
     });
+
+    // Emitir el mensaje a todos los clientes conectados
+    //socket.broadcast.emit("message", message);
   });
 });
+
+const db = mysql.createConnection({
+  host: "localhost",
+  user: "root",
+  password: "zYMU@zjlFxQYip_xkoaO@Vs",
+  database: "ods",
+});
+
+db.connect((err) => {
+  if (err) {
+    console.error("Error al conectar a la base de datos:", err);
+    throw err;
+  }
+  console.log("Conexión a la base de datos MySQL establecida");
+});
+
+
 
 server.listen(PORT);
 console.log(`server on port ${PORT}`);
